@@ -1,0 +1,135 @@
+UFC DATASET PROFILE
+============================================================
+
+Rows: 7340
+Columns: 42
+
+COLUMNS
+------------------------------------------------------------
+event_date
+event_name
+weight_class
+fighter1
+fighter2
+favourite
+underdog
+favourite_odds
+underdog_odds
+betting_outcome
+outcome
+method
+round
+fighter1_height
+fighter1_curr_weight
+fighter1_dob
+fighter1_reach
+fighter1_stance
+fighter1_sig_strikes_landed_pm
+fighter1_sig_strikes_accuracy
+fighter1_sig_strikes_absorbed_pm
+fighter1_sig_strikes_defended
+fighter1_takedown_avg_per15m
+fighter1_takedown_accuracy
+fighter1_takedown_defence
+fighter1_submission_avg_attempted_per15m
+fighter2_height
+fighter2_curr_weight
+fighter2_dob
+fighter2_reach
+fighter2_stance
+fighter2_sig_strikes_landed_pm
+fighter2_sig_strikes_accuracy
+fighter2_sig_strikes_absorbed_pm
+fighter2_sig_strikes_defended
+fighter2_takedown_avg_per15m
+fighter2_takedown_accuracy
+fighter2_takedown_defence
+fighter2_submission_avg_attempted_per15m
+events_extract_ts
+odds_extract_ts
+fighter_extract_ts
+
+DATA TYPES
+------------------------------------------------------------
+event_date                                      str
+event_name                                      str
+weight_class                                    str
+fighter1                                        str
+fighter2                                        str
+favourite                                       str
+underdog                                        str
+favourite_odds                              float64
+underdog_odds                               float64
+betting_outcome                                 str
+outcome                                         str
+method                                          str
+round                                         int64
+fighter1_height                             float64
+fighter1_curr_weight                        float64
+fighter1_dob                                    str
+fighter1_reach                              float64
+fighter1_stance                                 str
+fighter1_sig_strikes_landed_pm              float64
+fighter1_sig_strikes_accuracy               float64
+fighter1_sig_strikes_absorbed_pm            float64
+fighter1_sig_strikes_defended               float64
+fighter1_takedown_avg_per15m                float64
+fighter1_takedown_accuracy                  float64
+fighter1_takedown_defence                   float64
+fighter1_submission_avg_attempted_per15m    float64
+fighter2_height                             float64
+fighter2_curr_weight                        float64
+fighter2_dob                                    str
+fighter2_reach                              float64
+fighter2_stance                                 str
+fighter2_sig_strikes_landed_pm              float64
+fighter2_sig_strikes_accuracy               float64
+fighter2_sig_strikes_absorbed_pm            float64
+fighter2_sig_strikes_defended               float64
+fighter2_takedown_avg_per15m                float64
+fighter2_takedown_accuracy                  float64
+fighter2_takedown_defence                   float64
+fighter2_submission_avg_attempted_per15m    float64
+events_extract_ts                               str
+odds_extract_ts                                 str
+fighter_extract_ts                              str
+
+MISSING VALUES
+------------------------------------------------------------
+                                          missing_count  missing_percentage
+betting_outcome                                    3880               52.86
+favourite                                          3838               52.29
+underdog                                           3838               52.29
+odds_extract_ts                                    3838               52.29
+underdog_odds                                      3838               52.29
+favourite_odds                                     3838               52.29
+fighter2_reach                                     1020               13.90
+fighter1_reach                                      348                4.74
+fighter2_dob                                        220                3.00
+fighter2_stance                                     125                1.70
+fighter1_dob                                         93                1.27
+fighter2_height                                      50                0.68
+fighter2_curr_weight                                 47                0.64
+fighter1_stance                                      38                0.52
+fighter2_sig_strikes_accuracy                        28                0.38
+fighter2_submission_avg_attempted_per15m             28                0.38
+fighter2_takedown_defence                            28                0.38
+fighter2_takedown_accuracy                           28                0.38
+fighter2_takedown_avg_per15m                         28                0.38
+fighter2_sig_strikes_defended                        28                0.38
+fighter2_sig_strikes_absorbed_pm                     28                0.38
+fighter2_sig_strikes_landed_pm                       28                0.38
+fighter1_height                                      20                0.27
+fighter1_curr_weight                                 19                0.26
+fighter1_sig_strikes_absorbed_pm                     16                0.22
+fighter1_sig_strikes_defended                        16                0.22
+fighter1_sig_strikes_landed_pm                       16                0.22
+fighter1_submission_avg_attempted_per15m             16                0.22
+fighter1_sig_strikes_accuracy                        16                0.22
+fighter1_takedown_accuracy                           16                0.22
+fighter1_takedown_avg_per15m                         16                0.22
+fighter1_takedown_defence                            16                0.22
+
+DUPLICATES
+------------------------------------------------------------
+Duplicate rows: 0
