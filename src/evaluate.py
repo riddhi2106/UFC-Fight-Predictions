@@ -43,7 +43,7 @@ models = {
     },
     "Decision Tree": {
         "prediction": "decision_tree_prediction",
-        "probability": None
+        "probability": "decision_tree_probability"
     },
     "Gradient Boosting": {
         "prediction": "gradient_boosting_prediction",

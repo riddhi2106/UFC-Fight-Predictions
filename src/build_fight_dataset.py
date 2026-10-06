@@ -481,6 +481,68 @@ print(
 
 
 # =========================================================
+# RESOLVE THE WINNER
+# =========================================================
+#
+# OUTCOME is stated relative to the BOUT string:
+#
+#   "W/L" -> the fighter named FIRST in BOUT won
+#   "L/W" -> the fighter named SECOND in BOUT won
+#
+# fighter_a and fighter_b come from the fight-stats row
+# order, which matches the BOUT order only about half the
+# time. The winner must therefore be resolved by matching
+# names, never by assuming fighter_a is the fighter named
+# first in the BOUT string.
+
+bout_names = fight_level["BOUT"].str.split(" vs. ")
+
+bout_first = bout_names.str[0].str.strip()
+bout_second = bout_names.str[1].str.strip()
+
+fighter_a_clean = fight_level["fighter_a"].str.strip()
+
+a_is_bout_first = fighter_a_clean == bout_first
+a_is_bout_second = fighter_a_clean == bout_second
+
+fight_level["a_won"] = (
+    (
+        a_is_bout_first
+        & (fight_level["OUTCOME"] == "W/L")
+    )
+    | (
+        a_is_bout_second
+        & (fight_level["OUTCOME"] == "L/W")
+    )
+).astype(int)
+
+
+# Drop any fight whose fighter_a could not be matched to
+# either side of the BOUT string, because its winner
+# cannot be resolved.
+
+unresolved = ~(a_is_bout_first | a_is_bout_second)
+
+before_unresolved = len(fight_level)
+
+fight_level = fight_level[~unresolved].copy()
+
+removed_unresolved = (
+    before_unresolved - len(fight_level)
+)
+
+print(
+    f"Removed {removed_unresolved} fights where "
+    "fighter_a did not match the BOUT string."
+)
+
+print(
+    "fighter_a win rate after resolution: "
+    f"{fight_level['a_won'].mean():.4f}"
+)
+
+
+# =========================================================
 # SORT CHRONOLOGICALLY
 # =========================================================
 

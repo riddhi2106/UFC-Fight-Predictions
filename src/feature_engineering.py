@@ -363,11 +363,11 @@ for (date, event), event_df in df.groupby(
 
             "WEIGHTCLASS": row["WEIGHTCLASS"],
 
-            "target": (
-                1
-                if row["OUTCOME"] == "W/L"
-                else 0
-            ),
+            # a_won is resolved by name in
+            # build_fight_dataset.py. OUTCOME alone is
+            # stated relative to the BOUT string and does
+            # not line up with fighter_a.
+            "target": int(row["a_won"]),
         }
 
         for feature in feature_names:
@@ -412,13 +412,9 @@ for (date, event), event_df in df.groupby(
         fighter_a = row["fighter_a"]
         fighter_b = row["fighter_b"]
 
-        a_won = (
-            row["OUTCOME"] == "W/L"
-        )
+        a_won = bool(row["a_won"])
 
-        b_won = (
-            row["OUTCOME"] == "L/W"
-        )
+        b_won = not a_won
 
 
         a_fight_record = {
@@ -537,6 +533,237 @@ for (date, event), event_df in df.groupby(
 
 ml_df = pd.DataFrame(
     feature_rows
+)
+
+
+# =========================================================
+# PHYSICAL ATTRIBUTE FEATURES
+# =========================================================
+#
+# Height, reach, stance and date of birth are static
+# fighter attributes. They do not change from fight to
+# fight, so joining them introduces no temporal leakage.
+# Age is derived per fight from the event date, so it is
+# always the age the fighter actually was on fight night.
+#
+# The reference CS229 study identified age difference as
+# one of its most important variables, and none of the
+# history features above capture physical attributes.
+
+PHYSICAL_SOURCE = Path(
+    "data/raw/complete_ufc_data.csv"
+)
+
+physical_raw = pd.read_csv(
+    PHYSICAL_SOURCE
+)
+
+
+# Fighters appear in both the fighter1 and fighter2
+# columns, so stack the two halves into one lookup.
+
+lookup_parts = []
+
+for side in ["1", "2"]:
+
+    lookup_parts.append(
+        physical_raw[
+            [
+                f"fighter{side}",
+                f"fighter{side}_height",
+                f"fighter{side}_reach",
+                f"fighter{side}_dob",
+                f"fighter{side}_stance",
+            ]
+        ].rename(
+            columns={
+                f"fighter{side}": "fighter",
+                f"fighter{side}_height": "height",
+                f"fighter{side}_reach": "reach",
+                f"fighter{side}_dob": "dob",
+                f"fighter{side}_stance": "stance",
+            }
+        )
+    )
+
+
+physical = (
+    pd.concat(
+        lookup_parts,
+        ignore_index=True
+    )
+    .dropna(subset=["fighter"])
+)
+
+physical["fighter"] = (
+    physical["fighter"].str.strip()
+)
+
+physical = physical.drop_duplicates(
+    subset=["fighter"]
+).set_index("fighter")
+
+physical["dob"] = pd.to_datetime(
+    physical["dob"],
+    errors="coerce"
+)
+
+physical["is_southpaw"] = (
+    physical["stance"]
+    .eq("Southpaw")
+    .astype(float)
+)
+
+physical.loc[
+    physical["stance"].isna(),
+    "is_southpaw"
+] = float("nan")
+
+
+ml_df["DATE"] = pd.to_datetime(
+    ml_df["DATE"]
+)
+
+
+def attach_side(frame, side):
+    """Map one side's physical attributes onto the rows."""
+
+    names = frame[f"fighter_{side}"].str.strip()
+
+    height = names.map(physical["height"])
+    reach = names.map(physical["reach"])
+    dob = names.map(physical["dob"])
+    southpaw = names.map(physical["is_southpaw"])
+
+    age = (
+        (frame["DATE"] - dob).dt.days
+        / 365.25
+    )
+
+    # Guard against obviously corrupt dates of birth.
+    age = age.where(
+        (age > 15) & (age < 60)
+    )
+
+    return height, reach, age, southpaw
+
+
+(
+    a_height,
+    a_reach,
+    a_age,
+    a_southpaw,
+) = attach_side(ml_df, "a")
+
+(
+    b_height,
+    b_reach,
+    b_age,
+    b_southpaw,
+) = attach_side(ml_df, "b")
+
+
+physical_pairs = {
+    "age": (a_age, b_age),
+    "height": (a_height, b_height),
+    "reach": (a_reach, b_reach),
+    "southpaw": (a_southpaw, b_southpaw),
+}
+
+
+for name, (a_values, b_values) in physical_pairs.items():
+
+    ml_df[f"a_{name}"] = a_values
+    ml_df[f"b_{name}"] = b_values
+
+    difference = a_values - b_values
+
+    # A known flag is required because 0.0 is both the
+    # fill value and a genuine difference. Without it the
+    # model cannot tell "no edge" from "unknown".
+    ml_df[f"diff_{name}_known"] = (
+        difference.notna().astype(int)
+    )
+
+    ml_df[f"diff_{name}"] = difference.fillna(0.0)
+
+
+# Orthodox vs southpaw is a known stylistic matchup, and
+# it is symmetric, so it is kept as its own flag rather
+# than as a difference.
+
+ml_df["diff_stance_mismatch"] = (
+    (a_southpaw != b_southpaw)
+    & a_southpaw.notna()
+    & b_southpaw.notna()
+).astype(int)
+
+
+print()
+print("PHYSICAL FEATURE COVERAGE")
+print("-------------------------")
+
+for name in physical_pairs:
+
+    print(
+        f"{name:<10}",
+        f"{ml_df[f'diff_{name}_known'].mean():.4f}"
+    )
+
+
+# =========================================================
+# FIGHTER PROFILES
+# =========================================================
+#
+# After the loop above, `histories` holds each fighter's
+# full career state. Dumping it lets src/predict.py score
+# a matchup that is not in the dataset without rebuilding
+# the whole pipeline.
+#
+# These are end-of-dataset values, so they are only valid
+# for predicting a FUTURE fight, never for re-scoring a
+# past one.
+
+PROFILE_OUTPUT = Path(
+    "data/processed/fighter_profiles.csv"
+)
+
+profile_rows = []
+
+for fighter_name, history in histories.items():
+
+    profile = {"fighter": fighter_name}
+
+    profile.update(
+        get_fighter_features(history)
+    )
+
+    profile_rows.append(profile)
+
+
+profiles = pd.DataFrame(profile_rows)
+
+# Carry the static physical attributes across so predict.py
+# needs one file rather than two.
+profiles = profiles.join(
+    physical[["height", "reach", "dob", "is_southpaw"]],
+    on="fighter",
+)
+
+profiles = profiles.sort_values(
+    "total_fights",
+    ascending=False,
+)
+
+profiles.to_csv(
+    PROFILE_OUTPUT,
+    index=False,
+)
+
+print()
+print(
+    f"Saved {len(profiles)} fighter profiles to: "
+    f"{PROFILE_OUTPUT}"
 )
 
 
