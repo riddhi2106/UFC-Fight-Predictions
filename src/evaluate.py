@@ -8,6 +8,8 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     roc_auc_score,
+    brier_score_loss,
+    log_loss,
     confusion_matrix,
     ConfusionMatrixDisplay
 )
@@ -125,8 +127,18 @@ for name, columns in models.items():
             y_true,
             probabilities
         )
+        brier = brier_score_loss(
+            y_true,
+            probabilities
+        )
+        loss = log_loss(
+            y_true,
+            probabilities
+        )
     else:
         roc_auc = None
+        brier = None
+        loss = None
 
     results.append({
         "Model": name,
@@ -134,7 +146,9 @@ for name, columns in models.items():
         "Precision": precision,
         "Recall": recall,
         "F1": f1,
-        "ROC-AUC": roc_auc
+        "ROC-AUC": roc_auc,
+        "Brier": brier,
+        "Log-Loss": loss,
     })
 
     print("\n" + "-" * 70)
@@ -148,6 +162,8 @@ for name, columns in models.items():
 
     if roc_auc is not None:
         print(f"ROC-AUC  : {roc_auc:.4f}")
+        print(f"Brier    : {brier:.4f}")
+        print(f"Log-Loss : {loss:.4f}")
 
 
 # --------------------------------------------------

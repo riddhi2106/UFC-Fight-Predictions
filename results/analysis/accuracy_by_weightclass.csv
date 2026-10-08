@@ -1,12 +1,12 @@
 WEIGHTCLASS,accuracy,fights
-Women's Flyweight Bout,0.6705882352941176,85
-Women's Bantamweight Bout,0.65625,64
-Lightweight Bout,0.6485355648535565,239
-Flyweight Bout,0.6356589147286822,129
-Middleweight Bout,0.6338028169014085,213
-Bantamweight Bout,0.6302083333333334,192
-Heavyweight Bout,0.6140350877192983,114
-Welterweight Bout,0.6020942408376964,191
-Women's Strawweight Bout,0.5862068965517241,116
-Featherweight Bout,0.5566037735849056,212
-Light Heavyweight Bout,0.4732142857142857,112
+Women's Bantamweight Bout,0.6875,64
+Middleweight Bout,0.6807511737089202,213
+Flyweight Bout,0.6666666666666666,129
+Women's Strawweight Bout,0.6551724137931034,116
+Bantamweight Bout,0.625,192
+Women's Flyweight Bout,0.6235294117647059,85
+Lightweight Bout,0.6234309623430963,239
+Heavyweight Bout,0.6228070175438597,114
+Featherweight Bout,0.6037735849056604,212
+Welterweight Bout,0.581151832460733,191
+Light Heavyweight Bout,0.5089285714285714,112

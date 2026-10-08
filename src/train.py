@@ -1,5 +1,6 @@
 import os
 import joblib
+import numpy as np
 import pandas as pd
 
 from sklearn.pipeline import Pipeline
@@ -99,6 +100,58 @@ print(f"\nNumber of features: {len(feature_columns)}")
 
 
 # --------------------------------------------------
+# Symmetrical Data Augmentation (Training Only)
+# --------------------------------------------------
+# For matchup prediction, if Fighter A faces Fighter B with
+# difference features x and outcome y, then swapping the fighters
+# produces inverted features (-x for antisymmetric differences,
+# +x for symmetric pair flags) and inverted outcome (1 - y).
+#
+# Augmenting training folds with symmetrical mirrors:
+# 1. Enforces decision boundary antisymmetry: P(A beats B) = 1 - P(B beats A)
+# 2. Eliminates any orientation or corner-selection bias
+# 3. Ensures 50.00% target balance and 0-mean differences naturally
+
+symmetric_features = {
+    col for col in feature_columns
+    if col.endswith("_known") or col == "diff_stance_mismatch"
+}
+
+def create_symmetrical_mirror(X_data, y_data):
+    X_mirror = X_data.copy()
+    for col in X_data.columns:
+        if col not in symmetric_features:
+            X_mirror[col] = -X_mirror[col]
+    y_mirror = 1 - y_data
+    return X_mirror, y_mirror
+
+X_train_mirror, y_train_mirror = create_symmetrical_mirror(X_train, y_train)
+
+X_train_aug = pd.concat([X_train, X_train_mirror], ignore_index=True)
+y_train_aug = pd.concat([y_train, y_train_mirror], ignore_index=True)
+
+n_train_orig = len(X_train)
+print(f"Augmented training fights: {len(X_train_aug)} (symmetrically paired)")
+
+
+# --------------------------------------------------
+# Symmetrical TimeSeriesSplit Cross-Validation
+# --------------------------------------------------
+# To avoid internal leakage during hyperparameter search,
+# TimeSeriesSplit operates strictly on the original chronological bouts.
+# For each fold:
+# - Training fold: original train bouts + their corresponding mirrors
+# - Validation fold: strictly original forward bouts (unseen future)
+# This guarantees zero validation leakage while training on symmetrical data.
+
+ts = TimeSeriesSplit(n_splits=CV_SPLITS)
+symmetrical_cv_splits = []
+for tr_idx, val_idx in ts.split(X_train):
+    tr_aug_idx = np.concatenate([tr_idx, tr_idx + n_train_orig])
+    symmetrical_cv_splits.append((tr_aug_idx, val_idx))
+
+
+# --------------------------------------------------
 # Define models
 # --------------------------------------------------
 
@@ -151,28 +204,29 @@ models = {
 param_grids = {
 
     "logistic_regression": {
-        "model__C": [0.01, 0.1, 1.0, 10.0],
+        "model__C": [0.005, 0.01, 0.05, 0.1, 1.0],
+        "model__fit_intercept": [True, False],
     },
 
     "decision_tree": {
-        "max_depth": [3, 5, 7, 10],
+        "max_depth": [3, 4, 5, 7],
         "min_samples_leaf": [10, 25, 50],
     },
 
     "gradient_boosting": {
-        "n_estimators": [100, 300],
-        "learning_rate": [0.01, 0.05],
+        "n_estimators": [100, 200],
+        "learning_rate": [0.02, 0.05],
         "max_depth": [2, 3],
     },
 
     "mlp": {
         "model__hidden_layer_sizes": [(16,), (32, 16), (64, 32)],
-        "model__alpha": [1e-4, 1e-2],
+        "model__alpha": [1e-4, 1e-2, 1e-1],
     },
 }
 
 
-cv = TimeSeriesSplit(n_splits=CV_SPLITS)
+cv = symmetrical_cv_splits
 
 
 # --------------------------------------------------
@@ -204,7 +258,7 @@ for name, model in models.items():
         n_jobs=-1,
     )
 
-    search.fit(X_train, y_train)
+    search.fit(X_train_aug, y_train_aug)
 
     model = search.best_estimator_
 

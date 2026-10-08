@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from pathlib import Path
 from collections import defaultdict, deque
@@ -10,8 +11,16 @@ OUTPUT = Path("data/processed/ml_dataset.csv")
 RECENT_WINDOWS = [3, 5]
 
 DEFAULT_STRIKE_ACCURACY = 0.0
+DEFAULT_STRIKE_DEFENCE = 0.0
 DEFAULT_TD_ACCURACY = 0.0
 DEFAULT_TD_DEFENCE = 0.0
+
+DEFAULT_ELO = 1500.0
+INITIAL_ELO_K = 64.0
+BASE_ELO_K = 32.0
+
+HALF_LIFE_DAYS = 730.0  # 2-year half-life for exponential recency decay
+DECAY_RATE = np.log(2) / HALF_LIFE_DAYS
 
 
 # =========================================================
@@ -26,10 +35,19 @@ def safe_divide(numerator, denominator):
     return numerator / denominator
 
 
-def get_career_features(history):
+def get_career_features(history, current_date=None):
 
     fights = history["fights"]
     total_fights = len(fights)
+    elo_val = history.get("elo", DEFAULT_ELO)
+
+    # Layoff duration and UFC debut factor
+    if history.get("last_fight_date") is None or current_date is None:
+        days_since = 365.0
+        is_debut = 1.0 if total_fights == 0 else 0.0
+    else:
+        days_since = min(max(0.0, float((current_date - history["last_fight_date"]).days)), 1000.0)
+        is_debut = 0.0
 
     if total_fights == 0:
 
@@ -38,10 +56,16 @@ def get_career_features(history):
             "wins": 0,
             "losses": 0,
             "win_rate": 0.0,
+            "elo": elo_val,
+            "is_debut": is_debut,
+            "days_since_last_fight": days_since,
+            "decayed_win_rate": 0.0,
 
             "sig_str_landed_per_fight": 0.0,
             "sig_str_attempted_per_fight": 0.0,
             "sig_str_accuracy": DEFAULT_STRIKE_ACCURACY,
+            "sig_str_defence": DEFAULT_STRIKE_DEFENCE,
+            "decayed_sig_str_defence": DEFAULT_STRIKE_DEFENCE,
 
             "td_landed_per_fight": 0.0,
             "td_attempted_per_fight": 0.0,
@@ -92,8 +116,33 @@ def get_career_features(history):
         f["sig_absorbed"] for f in fights
     )
 
+    sig_faced = sum(
+        f.get("sig_faced", 0.0) for f in fights
+    )
+
     td_faced = sum(
         f["td_faced"] for f in fights
+    )
+
+    td_absorbed = sum(
+        f.get("td_absorbed", 0.0) for f in fights
+    )
+
+    # Exponential time-decay weights
+    if current_date is not None:
+        weights = [np.exp(-DECAY_RATE * max(0.0, float((current_date - f["date"]).days))) for f in fights]
+    else:
+        weights = [1.0] * total_fights
+
+    w_sum = sum(weights)
+    decayed_win_rate = sum(w * f["win"] for w, f in zip(weights, fights)) / w_sum if w_sum > 0 else 0.0
+
+    w_sig_absorbed = sum(w * f["sig_absorbed"] for w, f in zip(weights, fights))
+    w_sig_faced = sum(w * f.get("sig_faced", 0.0) for w, f in zip(weights, fights))
+    decayed_sig_defence = (
+        max(0.0, min(1.0, 1.0 - safe_divide(w_sig_absorbed, w_sig_faced)))
+        if w_sig_faced > 0
+        else DEFAULT_STRIKE_DEFENCE
     )
 
     return {
@@ -109,6 +158,11 @@ def get_career_features(history):
             total_fights
         ),
 
+        "elo": elo_val,
+        "is_debut": is_debut,
+        "days_since_last_fight": days_since,
+        "decayed_win_rate": decayed_win_rate,
+
         "sig_str_landed_per_fight": safe_divide(
             sig_landed,
             total_fights
@@ -123,6 +177,17 @@ def get_career_features(history):
             sig_landed,
             sig_attempted
         ),
+
+        "sig_str_defence": (
+            max(0.0, min(1.0, 1.0 - safe_divide(
+                sig_absorbed,
+                sig_faced
+            )))
+            if sig_faced > 0
+            else DEFAULT_STRIKE_DEFENCE
+        ),
+
+        "decayed_sig_str_defence": decayed_sig_defence,
 
         "td_landed_per_fight": safe_divide(
             td_landed,
@@ -165,10 +230,10 @@ def get_career_features(history):
         ),
 
         "td_defence": (
-            1.0 - safe_divide(
-                td_landed,
+            max(0.0, min(1.0, 1.0 - safe_divide(
+                td_absorbed,
                 td_faced
-            )
+            )))
             if td_faced > 0
             else DEFAULT_TD_DEFENCE
         ),
@@ -229,12 +294,12 @@ def get_recent_features(history):
     return features
 
 
-def get_fighter_features(history):
+def get_fighter_features(history, current_date=None):
 
     features = {}
 
     features.update(
-        get_career_features(history)
+        get_career_features(history, current_date)
     )
 
     features.update(
@@ -272,7 +337,9 @@ df = (
 histories = defaultdict(
     lambda: {
         "fights": [],
-        "recent": deque(maxlen=5)
+        "recent": deque(maxlen=5),
+        "elo": DEFAULT_ELO,
+        "last_fight_date": None,
     }
 )
 
@@ -283,10 +350,16 @@ feature_names = [
     "wins",
     "losses",
     "win_rate",
+    "elo",
+    "is_debut",
+    "days_since_last_fight",
+    "decayed_win_rate",
 
     "sig_str_landed_per_fight",
     "sig_str_attempted_per_fight",
     "sig_str_accuracy",
+    "sig_str_defence",
+    "decayed_sig_str_defence",
 
     "td_landed_per_fight",
     "td_attempted_per_fight",
@@ -345,11 +418,13 @@ for (date, event), event_df in df.groupby(
         history_b = histories[fighter_b]
 
         features_a = get_fighter_features(
-            history_a
+            history_a,
+            date
         )
 
         features_b = get_fighter_features(
-            history_b
+            history_b,
+            date
         )
 
         row_features = {
@@ -419,6 +494,8 @@ for (date, event), event_df in df.groupby(
 
         a_fight_record = {
 
+            "date": date,
+
             "win": int(a_won),
 
             "sig_landed": row[
@@ -453,13 +530,23 @@ for (date, event), event_df in df.groupby(
                 "b_sigstr_landed"
             ],
 
+            "sig_faced": row[
+                "b_sigstr_attempted"
+            ],
+
             "td_faced": row[
                 "b_td_attempted"
+            ],
+
+            "td_absorbed": row[
+                "b_td_landed"
             ],
         }
 
 
         b_fight_record = {
+
+            "date": date,
 
             "win": int(b_won),
 
@@ -495,10 +582,47 @@ for (date, event), event_df in df.groupby(
                 "a_sigstr_landed"
             ],
 
+            "sig_faced": row[
+                "a_sigstr_attempted"
+            ],
+
             "td_faced": row[
                 "a_td_attempted"
             ],
+
+            "td_absorbed": row[
+                "a_td_landed"
+            ],
         }
+
+
+        # -------------------------------------------------
+        # ROLLING ELO UPDATE (WITH METHOD FINISH MARGIN)
+        # -------------------------------------------------
+
+        r_a = histories[fighter_a]["elo"]
+        r_b = histories[fighter_b]["elo"]
+        expected_a = 1.0 / (1.0 + 10.0 ** ((r_b - r_a) / 400.0))
+        expected_b = 1.0 - expected_a
+        score_a = 1.0 if a_won else 0.0
+        score_b = 1.0 - score_a
+
+        k_a = INITIAL_ELO_K if len(histories[fighter_a]["fights"]) < 3 else BASE_ELO_K
+        k_b = INITIAL_ELO_K if len(histories[fighter_b]["fights"]) < 3 else BASE_ELO_K
+
+        method_str = str(row.get("METHOD", "")).lower()
+        if "ko" in method_str or "sub" in method_str:
+            margin_mult = 1.2
+        elif "split" in method_str or "majority" in method_str:
+            margin_mult = 0.8
+        else:
+            margin_mult = 1.0
+
+        histories[fighter_a]["elo"] = r_a + (k_a * margin_mult) * (score_a - expected_a)
+        histories[fighter_b]["elo"] = r_b + (k_b * margin_mult) * (score_b - expected_b)
+
+        histories[fighter_a]["last_fight_date"] = date
+        histories[fighter_b]["last_fight_date"] = date
 
 
         histories[
@@ -732,10 +856,13 @@ profile_rows = []
 
 for fighter_name, history in histories.items():
 
-    profile = {"fighter": fighter_name}
+    profile = {
+        "fighter": fighter_name,
+        "last_fight_date": history["last_fight_date"],
+    }
 
     profile.update(
-        get_fighter_features(history)
+        get_fighter_features(history, None)
     )
 
     profile_rows.append(profile)

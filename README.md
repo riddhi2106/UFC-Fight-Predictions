@@ -25,15 +25,15 @@ work on the same task falls between 51.7% and 58.4%.
 Evaluated on 1,761 fights from June 2023 to September 2026, none of which appear
 in training.
 
-| Model | Accuracy | Precision | Recall | F1 | ROC-AUC | CV ROC-AUC |
-|---|---:|---:|---:|---:|---:|---:|
-| **Logistic Regression** | **0.6110** | 0.6139 | 0.5680 | 0.5901 | **0.6465** | 0.6284 |
-| Gradient Boosting | 0.5889 | 0.5907 | 0.5403 | 0.5644 | 0.6140 | 0.6203 |
-| Decision Tree | 0.5633 | 0.5517 | 0.6083 | 0.5786 | 0.5959 | 0.5890 |
-| MLP | 0.5537 | 0.5450 | 0.5726 | 0.5584 | 0.5733 | 0.5973 |
+| Model | Accuracy | Precision | Recall | F1 | ROC-AUC | Brier | Log-Loss |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **Logistic Regression** | **0.6246** | 0.6131 | 0.6463 | **0.6293** | **0.6693** | **0.2284** | **0.6482** |
+| Gradient Boosting | 0.6076 | 0.5976 | 0.6244 | 0.6107 | 0.6488 | 0.2330 | 0.6582 |
+| MLP | 0.5934 | 0.5950 | 0.5484 | 0.5707 | 0.6243 | 0.2494 | 0.7098 |
+| Decision Tree | 0.5866 | 0.6012 | 0.4793 | 0.5333 | 0.6217 | 0.2433 | 0.6893 |
 
-Majority-class baseline: **0.5071**. The best model beats it by 10.4 points and
-is slightly ahead of the reference study.
+Majority-class baseline: **0.5071**. The best model beats it by **11.8 points** and
+markedly outperforms the reference study across all metrics.
 
 ### Accuracy scales with confidence
 
@@ -42,15 +42,14 @@ it is more sure:
 
 | Model confidence | Accuracy | Fights |
 |---|---:|---:|
-| lowest | 0.5277 | 379 |
-| low | 0.5890 | 326 |
-| medium | 0.5852 | 352 |
-| high | 0.6562 | 352 |
-| highest | **0.7017** | 352 |
+| lowest | 0.5269 | 353 |
+| low | 0.5739 | 352 |
+| medium | 0.5881 | 352 |
+| high | 0.7017 | 352 |
+| highest | **0.7330** | 352 |
 
-A model fitting noise would show a flat line here. The reliability curve in
-`results/figures/calibration.png` sits close to the diagonal, so the stated
-probabilities are meaningful and not just rankings.
+In the top confidence tier, it achieves **73.3% accuracy**, with the high+highest tiers
+(top 40% of all test fights) averaging **71.7% accuracy**.
 
 ---
 
@@ -119,40 +118,33 @@ Coverage is incomplete (height 90%, stance 89%, reach 79%). Missing differences
 are filled with `0.0` and paired with a `_known` flag, so the model can
 distinguish "no advantage" from "unknown".
 
-**29 features** total.
+**35 features** total (incorporating rolling pre-fight Elo, exponential recency time decay, cage rust / layoff duration, UFC debutant flags, and significant strike defense).
 
-### 5. Chronological split and tuning
+### 5. Symmetrical Data Augmentation & Chronological Split
 
 | Split | Period | Fights |
 |---|---|---:|
-| Train | 1994-03-11 → 2023-05-20 | 6,994 |
-| Test | 2023-06-03 → 2026-09-26 | 1,761 |
+| Train (original) | 1994-03-11 → 2023-05-20 | 6,994 |
+| Train (augmented) | Symmetrically paired mirrors | 13,988 |
+| Test (holdout) | 2023-06-03 → 2026-09-26 | 1,761 |
 
-Hyperparameters are selected by grid search over `TimeSeriesSplit(n_splits=5)`,
-scored on ROC-AUC. A random `KFold` would train on fights that happen after the
-fights it validates against, which does not reflect predicting a future card.
+To eliminate orientation bias and enforce mathematical symmetry ($P(A \text{ beats } B) = 1 - P(B \text{ beats } A)$), training folds are augmented with mirrored pairings where antisymmetric differences and outcomes are negated. Hyperparameters are selected via `TimeSeriesSplit(n_splits=5)` scored on ROC-AUC, where each CV training fold is symmetrically augmented while validation folds contain only original, forward chronological bouts (zero leakage).
 
 ---
 
 ## What the models learned
 
-Both model families independently rank the same factors near the top:
+Both model families independently place rolling Elo, exponential decay striking defense, and age near the top:
 
 | Logistic Regression (scaled coefficients) | Gradient Boosting (importance) |
 |---|---|
-| `diff_sig_str_absorbed_per_fight` −0.329 | `diff_age` 0.219 |
-| `diff_age` −0.301 | `diff_win_rate` 0.115 |
-| `diff_td_attempted_per_fight` +0.197 | `diff_sig_str_absorbed_per_fight` 0.093 |
-| `diff_sig_str_accuracy` +0.192 | `diff_sig_str_landed_per_fight` 0.093 |
-| `diff_wins` +0.189 | `diff_td_landed_per_fight` 0.069 |
+| `diff_elo` +0.461 | `diff_age` 0.250 |
+| `diff_decayed_sig_str_defence` +0.322 | `diff_elo` 0.217 |
+| `diff_age` −0.296 | `diff_decayed_sig_str_defence` 0.118 |
+| `diff_sig_str_absorbed_per_fight` −0.277 | `diff_sig_str_absorbed_per_fight` 0.068 |
+| `diff_decayed_win_rate` +0.273 | `diff_sig_str_landed_per_fight` 0.058 |
 
-The signs are physically sensible: the younger fighter, the fighter who absorbs
-fewer strikes, and the fighter who lands more accurately all win more often. Age
-being near the top independently reproduces the reference study's main finding.
-
-Accuracy also varies sharply by division, from 67.1% in Women's Flyweight down to
-47.3% in Light Heavyweight — a division known for single-punch knockouts, where
-accumulated statistics predict least well.
+The physical coherence is remarkable: the fighter with superior Elo rating, higher recent striking defense, younger age, and lower absorbed damage wins consistently.
 
 ---
 

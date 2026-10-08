@@ -1,5 +1,5 @@
 model,best_params,cv_roc_auc
-logistic_regression,{'model__C': 0.1},0.6284172069370122
-decision_tree,"{'max_depth': 5, 'min_samples_leaf': 25}",0.5889675111871578
-gradient_boosting,"{'learning_rate': 0.05, 'max_depth': 3, 'n_estimators': 100}",0.6202626966596694
-mlp,"{'model__alpha': 0.01, 'model__hidden_layer_sizes': (16,)}",0.5973454875322317
+logistic_regression,"{'model__C': 0.05, 'model__fit_intercept': True}",0.6426737256618862
+decision_tree,"{'max_depth': 5, 'min_samples_leaf': 25}",0.5961932741725129
+gradient_boosting,"{'learning_rate': 0.05, 'max_depth': 2, 'n_estimators': 200}",0.6365022837457788
+mlp,"{'model__alpha': 0.1, 'model__hidden_layer_sizes': (16,)}",0.6290385889718133

@@ -122,6 +122,21 @@ def build_features(profile_a, profile_b, fight_date, feature_order):
                 float(profile_a[name]) - float(profile_b[name])
             )
 
+    # Dynamic layoff calculation based on fight date
+    def calculate_layoff(profile):
+        lfd = profile.get("last_fight_date")
+        if pd.isna(lfd) or lfd is None:
+            return 365.0
+        dt = pd.to_datetime(lfd, errors="coerce")
+        if pd.isna(dt):
+            return 365.0
+        return min(max(0.0, float((fight_date - dt).days)), 1000.0)
+
+    if "diff_days_since_last_fight" in feature_order:
+        values["diff_days_since_last_fight"] = (
+            calculate_layoff(profile_a) - calculate_layoff(profile_b)
+        )
+
     # Physical differences, with their known flags.
     physical_a = physical_values(profile_a, fight_date)
     physical_b = physical_values(profile_b, fight_date)
@@ -298,7 +313,17 @@ def main():
     print()
     print("Key differences (fighter A minus fighter B):")
 
-    for name in ["win_rate", "age", "reach", "sig_str_absorbed_per_fight"]:
+    for name in [
+        "elo",
+        "decayed_win_rate",
+        "win_rate",
+        "age",
+        "days_since_last_fight",
+        "reach",
+        "sig_str_defence",
+        "td_defence",
+        "sig_str_absorbed_per_fight",
+    ]:
 
         column = f"diff_{name}"
 

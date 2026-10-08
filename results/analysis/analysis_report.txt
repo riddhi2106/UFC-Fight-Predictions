@@ -3,71 +3,71 @@ UFC FIGHT PREDICTION - ANALYSIS
 ============================================================
 
 Test fights: 1761
-Features: 29
+Features: 35
 Majority-class baseline: 0.5071
 
 ------------------------------------------------------------
 TOP 10 LOGISTIC REGRESSION COEFFICIENTS (scaled)
 ------------------------------------------------------------
-diff_sig_str_absorbed_per_fight    -0.3286
-diff_age                           -0.3014
-diff_td_attempted_per_fight         0.1970
-diff_sig_str_accuracy               0.1922
-diff_wins                           0.1885
-diff_losses                        -0.1765
-diff_last_5_win_rate                0.1555
-diff_sig_str_landed_per_fight       0.1500
-diff_sig_str_attempted_per_fight    0.1467
-diff_last_5_sig_str_accuracy       -0.1259
+diff_elo                           0.4612
+diff_win_rate                     -0.4543
+diff_decayed_sig_str_defence       0.3224
+diff_age                          -0.2962
+diff_sig_str_absorbed_per_fight   -0.2767
+diff_decayed_win_rate              0.2729
+diff_wins                         -0.1998
+diff_td_attempted_per_fight        0.1987
+diff_is_debut                      0.1740
+diff_sig_str_accuracy              0.1733
 
 ------------------------------------------------------------
 TOP 10 GRADIENT BOOSTING IMPORTANCES
 ------------------------------------------------------------
-diff_age                            0.2186
-diff_win_rate                       0.1149
-diff_sig_str_absorbed_per_fight     0.0930
-diff_sig_str_landed_per_fight       0.0927
-diff_td_landed_per_fight            0.0692
-diff_wins                           0.0487
-diff_td_attempted_per_fight         0.0395
-diff_reach_known                    0.0377
-diff_td_faced_per_fight             0.0299
-diff_sig_str_attempted_per_fight    0.0283
+diff_age                           0.2496
+diff_elo                           0.2172
+diff_decayed_sig_str_defence       0.1176
+diff_sig_str_absorbed_per_fight    0.0676
+diff_sig_str_landed_per_fight      0.0578
+diff_td_landed_per_fight           0.0560
+diff_td_attempted_per_fight        0.0475
+diff_sig_str_defence               0.0285
+diff_reach_known                   0.0211
+diff_reach                         0.0195
 
 ------------------------------------------------------------
 ACCURACY BY CONFIDENCE BUCKET
 ------------------------------------------------------------
          accuracy  fights
 bucket                   
-lowest     0.5277     379
-low        0.5890     326
-medium     0.5852     352
-high       0.6562     352
-highest    0.7017     352
+lowest     0.5269     353
+low        0.5739     352
+medium     0.5881     352
+high       0.7017     352
+highest    0.7330     352
 
 ------------------------------------------------------------
 ACCURACY BY WEIGHT CLASS (30+ fights)
 ------------------------------------------------------------
                            accuracy  fights
 WEIGHTCLASS                                
-Women's Flyweight Bout       0.6706      85
-Women's Bantamweight Bout    0.6562      64
-Lightweight Bout             0.6485     239
-Flyweight Bout               0.6357     129
-Middleweight Bout            0.6338     213
-Bantamweight Bout            0.6302     192
-Heavyweight Bout             0.6140     114
-Welterweight Bout            0.6021     191
-Women's Strawweight Bout     0.5862     116
-Featherweight Bout           0.5566     212
-Light Heavyweight Bout       0.4732     112
+Women's Bantamweight Bout    0.6875      64
+Middleweight Bout            0.6808     213
+Flyweight Bout               0.6667     129
+Women's Strawweight Bout     0.6552     116
+Bantamweight Bout            0.6250     192
+Women's Flyweight Bout       0.6235      85
+Lightweight Bout             0.6234     239
+Heavyweight Bout             0.6228     114
+Featherweight Bout           0.6038     212
+Welterweight Bout            0.5812     191
+Light Heavyweight Bout       0.5089     112
 
 ------------------------------------------------------------
 ACCURACY BY YEAR
 ------------------------------------------------------------
       accuracy  fights
 year                  
-2023    0.6174     311
-2024    0.6238     513
-2025    0.6198     526
-2026    0.5791     411
+2023    0.6077     311
+2024    0.6452     513
+2025    0.6388     526
+2026    0.5937     411
